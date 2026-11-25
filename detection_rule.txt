@@ -1,0 +1,29 @@
+title: Brute Force SSH with Privilege Escalation and Backdoor Account Creation
+id: 5e8b7c9a-1f2d-4e3c-9b8a-7d6f5e4c3b2a
+status: experimental
+description: Detects rapid SSH authentication failures across multiple users from multiple IPs, followed by privilege escalation via sudo and/or creation of a root-level backdoor user account.
+author: Detection Engineer
+date: 2024/07/25
+logsource:
+  product: linux
+  service: auth
+detection:
+  selection_ssh_failures:
+    - EventID: 551 # sshd: Failed password
+    - EventID: 552 # sshd: Invalid user
+  selection_sudo_escalation:
+    - EventID: 574 # sudo: privilege escalation
+    - EventID: 575 # sudo: command execution
+    - EventID: 576 # sudo: session opened/closed
+    - COMMAND: '*cat /etc/shadow*'
+  selection_useradd_root:
+    - EventID: 571 # useradd
+    - UID: '0'
+    - GID: '0'
+  selection_timeframe:
+    - _time: '2024-07-25T08:00:00Z - 2024-07-25T08:30:00Z'
+  condition: (selection_ssh_failures | count by src_ip, user > 2) and (selection_sudo_escalation or selection_useradd_root) and selection_timeframe
+falsepositives:
+  - Legitimate password spraying during security testing with proper authorization
+  - Automated backup or monitoring tools accessing multiple accounts (rare)
+level: high
